@@ -2,6 +2,14 @@
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Index
 from sqlalchemy.orm import sessionmaker, declarative_base
 from datetime import datetime
+import pytz
+
+# IST timezone
+IST = pytz.timezone('Asia/Kolkata')
+
+def get_ist_now():
+    """Get current time in IST"""
+    return datetime.now(IST)
 
 # SQLite DB (file sits next to project)
 DATABASE_URL = "sqlite:///./chat_history.db"
@@ -18,7 +26,7 @@ class ChatMessage(Base):
     session_id = Column(String, index=True, nullable=False, default="global")  # <-- session id for per-user chats
     role = Column(String, nullable=False)  # 'user' or 'bot' (or 'system')
     content = Column(String, nullable=False) # message text
-    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+    timestamp = Column(DateTime, default=get_ist_now, nullable=False)
 
     # helpful index (session_id + timestamp) created below
 

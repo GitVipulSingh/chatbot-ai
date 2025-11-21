@@ -81,8 +81,7 @@ function App() {
 
   const sendMessage = async () => {
     if (!input.trim() || !sessionId) return;
-    const now = new Date().toISOString();
-    const userMsg = { role: "user", content: input, timestamp: now };
+    const userMsg = { role: "user", content: input, timestamp: null };
     const isFirstMessage = messages.length === 0;
 
     setMessages((prev) => [...prev, userMsg]);
@@ -95,16 +94,12 @@ function App() {
         message: userMsg.content,
       });
 
-      const botMsg = {
-        role: "bot",
-        content: res.data.reply,
-        timestamp: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, botMsg]);
+      // Fetch updated history to get correct IST timestamps from backend
+      await fetchHistory();
       fetchStats();
       
-      // If title was generated (first message), trigger sidebar refresh
-      if (res.data.title_generated || isFirstMessage) {
+      // If title was generated/updated, trigger sidebar refresh
+      if (res.data.title_generated) {
         // Trigger a custom event to refresh sidebar
         window.dispatchEvent(new CustomEvent('refreshSessions'));
       }
@@ -194,7 +189,7 @@ function App() {
                   <ReactMarkdown>{msg.content}</ReactMarkdown>
                 </div>
                 <div className="message-footer">
-                  <span className="time">{msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : ""}</span>
+                  <span className="time">{msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit', timeZone: 'Asia/Kolkata'}) : ""}</span>
                 </div>
               </div>
             ))}

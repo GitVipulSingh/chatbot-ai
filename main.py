@@ -8,6 +8,14 @@ from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime
 from sqlalchemy import func
+import pytz
+
+# IST timezone
+IST = pytz.timezone('Asia/Kolkata')
+
+def get_ist_now():
+    """Get current time in IST"""
+    return datetime.now(IST)
 
 # Import database & models
 from database import ChatMessage, get_db
@@ -87,19 +95,52 @@ def build_gemini_history(db_msgs: List[ChatMessage]):
         history.append({"role": role, "parts": [m.content]})
     return history
 
-def generate_title_from_message(message: str) -> str:
-    """Generate a short title from the first user message using Gemini."""
+def is_greeting(message: str) -> bool:
+    """Check if message is just a greeting"""
+    greetings = [
+        "hi", "hello", "hey", "hii", "hiii", "hiiii", "helo", "helo", 
+        "yo", "sup", "wassup", "whatsup", "namaste", "namaskar",
+        "good morning", "good afternoon", "good evening", "good night",
+        "gm", "gn", "morning", "evening"
+    ]
+    msg_lower = message.lower().strip().strip('!.,?')
+    return msg_lower in greetings or len(message.strip()) < 3
+
+def generate_title_from_conversation(messages: List[ChatMessage]) -> str:
+    """Generate a meaningful title from conversation context (first 3 messages)"""
     try:
+        # Get first 3 user messages (skip greetings)
+        user_messages = [m.content for m in messages if m.role == "user" and not is_greeting(m.content)][:3]
+        
+        if not user_messages:
+            return "New Chat"
+        
+        # Combine messages for context
+        context = " | ".join(user_messages)
+        
         title_model = genai.GenerativeModel('gemini-2.0-flash')
-        prompt = f"Generate a very short title (max 5 words) for this message: '{message}'. Only return the title, nothing else."
+        prompt = f"""Based on this conversation context, generate a very short, meaningful title (max 4-5 words).
+Context: {context}
+
+Rules:
+- Be specific and descriptive
+- Use proper spelling (fix any typos in context)
+- Focus on the main topic/intent
+- Don't use greetings
+- Return ONLY the title, nothing else
+
+Title:"""
         response = title_model.generate_content(prompt)
-        title = response.text.strip().strip('"').strip("'")
+        title = response.text.strip().strip('"').strip("'").strip('.')
         # Limit to 50 chars
         return title[:50] if len(title) > 50 else title
-    except:
-        # Fallback: use first few words
-        words = message.split()[:5]
-        return " ".join(words) + ("..." if len(message.split()) > 5 else "")
+    except Exception as e:
+        # Fallback: use first non-greeting message
+        for m in messages:
+            if m.role == "user" and not is_greeting(m.content):
+                words = m.content.split()[:5]
+                return " ".join(words) + ("..." if len(m.content.split()) > 5 else "")
+        return "New Chat"
 
 # --- Endpoints ---
 
@@ -127,16 +168,52 @@ async def chat_with_gemini(user_input: UserMessage, db: Session = Depends(get_db
         is_first_message = message_count == 0
         
         # 1) Save user message
-        user_msg_entry = ChatMessage(session_id=session_id, role="user", content=message_text, timestamp=datetime.utcnow())
+        user_msg_entry = ChatMessage(session_id=session_id, role="user", content=message_text, timestamp=get_ist_now())
         db.add(user_msg_entry)
         db.commit()
         db.refresh(user_msg_entry)
 
-        # 2) If first message, generate and save title
-        if is_first_message:
-            title = generate_title_from_message(message_text)
-            title_msg = ChatMessage(session_id=session_id, role="system", content=f"[title]{title}", timestamp=datetime.utcnow())
-            db.add(title_msg)
+        # 2) Smart title generation logic
+        # Count user messages (after adding current one)
+        user_msg_count = db.query(ChatMessage).filter(
+            ChatMessage.session_id == session_id,
+            ChatMessage.role == "user"
+        ).count()
+        
+        # Generate/update title after 3rd user message (or 1st if not a greeting)
+        should_generate_title = False
+        
+        if user_msg_count == 1 and not is_greeting(message_text):
+            # First message and not a greeting - create temporary title
+            should_generate_title = True
+        elif user_msg_count == 3:
+            # After 3 messages - generate meaningful title from context
+            should_generate_title = True
+        
+        if should_generate_title:
+            # Get all messages for context
+            all_messages = db.query(ChatMessage).filter(
+                ChatMessage.session_id == session_id,
+                ChatMessage.role.in_(["user", "bot"])
+            ).order_by(ChatMessage.id.asc()).all()
+            
+            title = generate_title_from_conversation(all_messages)
+            
+            # Check if title already exists
+            existing_title = db.query(ChatMessage).filter(
+                ChatMessage.session_id == session_id,
+                ChatMessage.role == "system",
+                ChatMessage.content.like("[title]%")
+            ).first()
+            
+            if existing_title:
+                # Update existing title
+                existing_title.content = f"[title]{title}"
+            else:
+                # Create new title
+                title_msg = ChatMessage(session_id=session_id, role="system", content=f"[title]{title}", timestamp=get_ist_now())
+                db.add(title_msg)
+            
             db.commit()
 
         # 3) Fetch recent session-specific history (limit to last N messages)
@@ -159,12 +236,12 @@ async def chat_with_gemini(user_input: UserMessage, db: Session = Depends(get_db
         bot_reply_text = response.text if hasattr(response, "text") else str(response)
 
         # 6) Save bot reply
-        bot_msg_entry = ChatMessage(session_id=session_id, role="bot", content=bot_reply_text, timestamp=datetime.utcnow())
+        bot_msg_entry = ChatMessage(session_id=session_id, role="bot", content=bot_reply_text, timestamp=get_ist_now())
         db.add(bot_msg_entry)
         db.commit()
         db.refresh(bot_msg_entry)
 
-        return {"reply": bot_reply_text, "title_generated": is_first_message}
+        return {"reply": bot_reply_text, "title_generated": should_generate_title}
 
     except Exception as e:
         # On unexpected errors, return 500 with message (don't leak secrets)
@@ -174,14 +251,16 @@ async def chat_with_gemini(user_input: UserMessage, db: Session = Depends(get_db
 def get_chat_history(session_id: str, limit: Optional[int] = 200, db: Session = Depends(get_db)):
     """
     GET /api/history?session_id=...&limit=100
-    If session_id is provided, returns messages only for that session (recommended).
-    If omitted, returns last `limit` messages globally (useful for admin).
+    Returns only user and bot messages (excludes system messages like titles).
     """
     limit = min(int(limit or 200), 2000)
     if session_id:
         msgs = (
             db.query(ChatMessage)
-            .filter(ChatMessage.session_id == session_id)
+            .filter(
+                ChatMessage.session_id == session_id,
+                ChatMessage.role.in_(["user", "bot"])  # Exclude system messages
+            )
             .order_by(ChatMessage.id.asc())
             .all()
         )
@@ -237,16 +316,17 @@ def list_sessions(db: Session = Depends(get_db)):
     
     sessions = []
     for (sid,) in session_ids:
-        # Get title from system message if exists
+        # Get title from system message if exists (get the most recent one)
         title_msg = db.query(ChatMessage).filter(
             ChatMessage.session_id == sid,
             ChatMessage.role == "system",
             ChatMessage.content.like("[title]%")
-        ).first()
+        ).order_by(ChatMessage.timestamp.desc()).first()
         
-        # Get last message timestamp
+        # Get last message timestamp (exclude system messages for sorting)
         last_msg = db.query(ChatMessage).filter(
-            ChatMessage.session_id == sid
+            ChatMessage.session_id == sid,
+            ChatMessage.role.in_(["user", "bot"])  # Only user/bot messages for sorting
         ).order_by(ChatMessage.timestamp.desc()).first()
         
         # Get first user message as fallback
@@ -289,7 +369,7 @@ def create_session(req: NewSessionRequest = None, db: Session = Depends(get_db))
     sid = str(uuid.uuid4())
     # Optionally create an initial system message or title marker (not required)
     if req and req.title:
-        msg = ChatMessage(session_id=sid, role="system", content=f"[title]{req.title}", timestamp=datetime.utcnow())
+        msg = ChatMessage(session_id=sid, role="system", content=f"[title]{req.title}", timestamp=get_ist_now())
         db.add(msg)
         db.commit()
     return {"session_id": sid, "title": req.title if req else None}
@@ -301,14 +381,28 @@ class RenameSessionRequest(BaseModel):
 @app.post("/api/sessions/rename")
 def rename_session(req: RenameSessionRequest, db: Session = Depends(get_db)):
     """
-    Rename a session by inserting a system marker message with the title.
-    (Simple approach: store a system message as a title marker.)
+    Rename a session by updating or creating a title marker message.
     """
     sid = req.session_id.strip()
     if not sid:
         raise HTTPException(status_code=400, detail="session_id required")
-    marker = ChatMessage(session_id=sid, role="system", content=f"[title]{req.title}", timestamp=datetime.utcnow())
-    db.add(marker)
+    
+    # Find existing title message
+    existing_title = db.query(ChatMessage).filter(
+        ChatMessage.session_id == sid,
+        ChatMessage.role == "system",
+        ChatMessage.content.like("[title]%")
+    ).first()
+    
+    if existing_title:
+        # Update existing title (keep original timestamp to not affect sorting)
+        existing_title.content = f"[title]{req.title}"
+        # Don't update timestamp - keep original
+    else:
+        # Create new title message with current time
+        marker = ChatMessage(session_id=sid, role="system", content=f"[title]{req.title}", timestamp=get_ist_now())
+        db.add(marker)
+    
     db.commit()
     return {"ok": True}
 
