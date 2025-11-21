@@ -82,6 +82,28 @@ body {
   background: rgba(255, 255, 255, 0.25);
 }
 
+.persona-selector {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 6px 12px;
+  color: #ffffff;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.persona-selector:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.persona-selector option {
+  background: #ffffff;
+  color: #111b21;
+}
+
 /* ============================
    4. Messages Area
    ============================ */

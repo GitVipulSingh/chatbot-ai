@@ -27,6 +27,7 @@ class ChatMessage(Base):
     role = Column(String, nullable=False)  # 'user' or 'bot' (or 'system')
     content = Column(String, nullable=False) # message text
     timestamp = Column(DateTime, default=get_ist_now, nullable=False)
+    persona = Column(String, nullable=True, default="travel")  # persona type for the session
 
     # helpful index (session_id + timestamp) created below
 

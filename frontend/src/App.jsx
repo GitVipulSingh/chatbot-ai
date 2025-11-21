@@ -12,14 +12,32 @@ function App() {
   const [msgCount, setMsgCount] = useState(0);
 
   const [sessionId, setSessionId] = useState(null);
+  const [personas, setPersonas] = useState([]);
+  const [currentPersona, setCurrentPersona] = useState("travel");
   const messagesEndRef = useRef(null);
+
+  // Fetch available personas
+  useEffect(() => {
+    const fetchPersonas = async () => {
+      try {
+        const res = await axios.get("http://127.0.0.1:8000/api/personas");
+        setPersonas(res.data.personas);
+      } catch (error) {
+        console.error("Error fetching personas:", error);
+      }
+    };
+    fetchPersonas();
+  }, []);
 
   // initialize or restore last active session id in localStorage
   useEffect(() => {
     let last = localStorage.getItem("travelbuddy_active_session");
+    let lastPersona = localStorage.getItem("travelbuddy_persona") || "travel";
+    setCurrentPersona(lastPersona);
+    
     if (!last) {
       // optionally create a new session immediately
-      createNewSession().then((sid) => {
+      createNewSession(null, lastPersona).then((sid) => {
         setSessionId(sid);
         localStorage.setItem("travelbuddy_active_session", sid);
       });
@@ -64,13 +82,19 @@ function App() {
     }
   };
 
-  const createNewSession = async (title = null) => {
+  const createNewSession = async (title = null, persona = null) => {
     try {
-      const res = await axios.post("http://127.0.0.1:8000/api/sessions", { title });
+      const personaToUse = persona || currentPersona;
+      const res = await axios.post("http://127.0.0.1:8000/api/sessions", { 
+        title, 
+        persona: personaToUse 
+      });
       const sid = res.data.session_id;
       // persist active session
       localStorage.setItem("travelbuddy_active_session", sid);
+      localStorage.setItem("travelbuddy_persona", personaToUse);
       setSessionId(sid);
+      setCurrentPersona(personaToUse);
       setMessages([]);
       setMsgCount(0);
       return sid;
@@ -82,7 +106,6 @@ function App() {
   const sendMessage = async () => {
     if (!input.trim() || !sessionId) return;
     const userMsg = { role: "user", content: input, timestamp: null };
-    const isFirstMessage = messages.length === 0;
 
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
@@ -92,6 +115,7 @@ function App() {
       const res = await axios.post("http://127.0.0.1:8000/api/chat", {
         session_id: sessionId,
         message: userMsg.content,
+        persona: currentPersona,
       });
 
       // Fetch updated history to get correct IST timestamps from backend
@@ -154,14 +178,23 @@ function App() {
   };
 
   // Sidebar callbacks
-  const handleSwitchSession = (sid) => {
+  const handleSwitchSession = (sid, persona = "travel") => {
     if (!sid) {
       // create new session if null passed
-      createNewSession();
+      createNewSession(null, persona);
       return;
     }
     localStorage.setItem("travelbuddy_active_session", sid);
+    localStorage.setItem("travelbuddy_persona", persona);
     setSessionId(sid);
+    setCurrentPersona(persona);
+  };
+
+  const handlePersonaChange = (newPersona) => {
+    setCurrentPersona(newPersona);
+    localStorage.setItem("travelbuddy_persona", newPersona);
+    // Create new session with new persona
+    createNewSession(null, newPersona);
   };
 
   const handleDeleteSession = async (sid) => {
@@ -189,9 +222,10 @@ function App() {
     <div className="app-shell">
       <SessionsSidebar
         activeSession={sessionId}
+        currentPersona={currentPersona}
         onSwitch={handleSwitchSession}
         onNewSession={async () => {
-          const sid = await createNewSession();
+          const sid = await createNewSession(null, currentPersona);
           return sid;
         }}
         onDelete={handleDeleteSession}
@@ -202,7 +236,23 @@ function App() {
         <div className="chat-container">
           <div className="chat-header">
             <div>
-              <h1>✈️ Travel Buddy</h1>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <h1>
+                  {personas.find(p => p.id === currentPersona)?.emoji || "🤖"}{" "}
+                  {personas.find(p => p.id === currentPersona)?.name || "Chatbot"}
+                </h1>
+                <select 
+                  value={currentPersona} 
+                  onChange={(e) => handlePersonaChange(e.target.value)}
+                  className="persona-selector"
+                >
+                  {personas.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.emoji} {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <small style={{ fontSize: "0.8rem", opacity: 0.8 }}>
                 {msgCount} messages exchanged
               </small>
@@ -231,7 +281,12 @@ function App() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyPress}
-              placeholder="Ask about a destination..."
+              placeholder={
+                currentPersona === "travel" ? "Ask about a destination..." :
+                currentPersona === "career" ? "Ask about your career..." :
+                currentPersona === "fitness" ? "Ask about fitness..." :
+                "Ask about movies..."
+              }
             />
             <button onClick={sendMessage}>Send</button>
           </div>

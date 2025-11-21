@@ -2,9 +2,16 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
-export default function SessionsSidebar({ activeSession, onSwitch, onNewSession, onDelete, onRename }) {
+export default function SessionsSidebar({ activeSession, currentPersona, onSwitch, onNewSession, onDelete, onRename }) {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(false);
+  
+  const personaEmojis = {
+    travel: "✈️",
+    career: "💼",
+    fitness: "💪",
+    movie: "🎬"
+  };
 
   const fetchSessions = async () => {
     setLoading(true);
@@ -56,10 +63,14 @@ export default function SessionsSidebar({ activeSession, onSwitch, onNewSession,
             minute: '2-digit'
           }) : "";
           const isActive = activeSession === s.session_id;
+          const personaEmoji = personaEmojis[s.persona] || "🤖";
           return (
             <div key={s.session_id} className={`session-item ${isActive ? "active" : ""}`}>
-              <div onClick={() => onSwitch(s.session_id)} className="session-main">
-                <div className="session-title">{title}</div>
+              <div onClick={() => onSwitch(s.session_id, s.persona)} className="session-main">
+                <div className="session-title">
+                  <span style={{ marginRight: "6px" }}>{personaEmoji}</span>
+                  {title}
+                </div>
                 <div className="session-meta">{last}</div>
               </div>
               <div className="session-actions">

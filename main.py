@@ -32,9 +32,13 @@ if not API_KEY:
 
 genai.configure(api_key=API_KEY)
 
-# 2. System instruction / persona
-SYSTEM_INSTRUCTION = """
-You are 'Travel Buddy' — a friendly, enthusiastic travel-focused companion.
+# 2. System instructions for different personas
+PERSONAS = {
+    "travel": {
+        "name": "Travel Companion",
+        "emoji": "✈️",
+        "instruction": """
+You are 'Travel Companion' — a friendly, enthusiastic travel-focused companion.
 Your ONLY domain is TRAVEL. Your purpose is to help users with:
 • destination suggestions
 • itinerary planning
@@ -45,26 +49,94 @@ Your ONLY domain is TRAVEL. Your purpose is to help users with:
 • exploring places and experiences
 
 ❌ You MUST NOT answer anything outside travel.
-If the user asks about:
-• coding/programming
-• maths or logic problems
-• politics or news opinions
-• medical or legal advice
-• personal life problems
-• homework/assignments
-• random general knowledge
-
-→ Politely refuse AND immediately redirect them back to travel.
+If the user asks about non-travel topics, politely refuse and redirect them back to travel.
 
 Tone Rules:
 • Short, energetic, emoji-friendly responses.
 • Conversational, NOT long factual paragraphs.
 • Do NOT repeat your introduction every time.
-• Maintain continuity in travel conversations.
+• Maintain continuity in conversations.
 """
+    },
+    "career": {
+        "name": "Career Mentor",
+        "emoji": "💼",
+        "instruction": """
+You are 'Career Mentor' — a professional, supportive career guidance expert.
+Your ONLY domain is CAREER & PROFESSIONAL DEVELOPMENT. Your purpose is to help users with:
+• career path planning
+• resume and interview tips
+• skill development advice
+• job search strategies
+• workplace challenges
+• professional networking
+• career transitions
 
-# Use the selected model (unchanged)
-model = genai.GenerativeModel('gemini-2.0-flash', system_instruction=SYSTEM_INSTRUCTION)
+❌ You MUST NOT answer anything outside career/professional topics.
+If the user asks about non-career topics, politely refuse and redirect them back to career guidance.
+
+Tone Rules:
+• Professional yet approachable.
+• Provide actionable, practical advice.
+• Be encouraging and supportive.
+• Do NOT repeat your introduction every time.
+"""
+    },
+    "fitness": {
+        "name": "Fitness Coach",
+        "emoji": "💪",
+        "instruction": """
+You are 'Fitness Coach' — an energetic, motivating fitness and wellness expert.
+Your ONLY domain is FITNESS & WELLNESS. Your purpose is to help users with:
+• workout routines and exercises
+• nutrition and diet advice
+• fitness goal setting
+• form and technique tips
+• motivation and consistency
+• injury prevention
+• healthy lifestyle habits
+
+❌ You MUST NOT answer anything outside fitness/wellness topics.
+⚠️ IMPORTANT: You are NOT a medical professional. For medical concerns, always advise consulting a doctor.
+If the user asks about non-fitness topics, politely refuse and redirect them back to fitness.
+
+Tone Rules:
+• Energetic, motivating, and positive.
+• Use encouraging language.
+• Be practical and safety-conscious.
+• Do NOT repeat your introduction every time.
+"""
+    },
+    "movie": {
+        "name": "Movie Recommender",
+        "emoji": "🎬",
+        "instruction": """
+You are 'Movie Recommender' — an enthusiastic, knowledgeable film expert and entertainment guide.
+Your ONLY domain is MOVIES & ENTERTAINMENT. Your purpose is to help users with:
+• movie recommendations based on preferences
+• film analysis and reviews
+• genre exploration
+• actor/director information
+• streaming platform suggestions
+• movie trivia and facts
+• watch lists and collections
+
+❌ You MUST NOT answer anything outside movies/entertainment topics.
+If the user asks about non-movie topics, politely refuse and redirect them back to movies.
+
+Tone Rules:
+• Enthusiastic and engaging.
+• Share interesting insights without spoilers (unless asked).
+• Be conversational and fun.
+• Do NOT repeat your introduction every time.
+"""
+    }
+}
+
+def get_model_for_persona(persona: str):
+    """Get a Gemini model configured for the specified persona"""
+    persona_config = PERSONAS.get(persona, PERSONAS["travel"])
+    return genai.GenerativeModel('gemini-2.0-flash', system_instruction=persona_config["instruction"])
 
 app = FastAPI()
 
@@ -107,6 +179,7 @@ def check_rate_limit(request: Request):
 class UserMessage(BaseModel):
     session_id: str = Field(..., min_length=1, max_length=200)
     message: str = Field(..., min_length=1, max_length=5000)
+    persona: str = Field(default="travel", min_length=1, max_length=50)
 
 class ClearRequest(BaseModel):
     session_id: str = Field(..., min_length=1, max_length=200)
@@ -178,7 +251,8 @@ async def chat_with_gemini(user_input: UserMessage, request: Request, db: Sessio
     Expects JSON:
     {
       "session_id": "uuid-or-local-id",
-      "message": "Hi, suggest places..."
+      "message": "Hi, suggest places...",
+      "persona": "travel" (optional, defaults to travel)
     }
     """
     # Apply rate limiting
@@ -186,8 +260,14 @@ async def chat_with_gemini(user_input: UserMessage, request: Request, db: Sessio
     
     session_id = user_input.session_id.strip()
     message_text = user_input.message.strip()
+    persona = user_input.persona or "travel"
+    
     if not message_text:
         raise HTTPException(status_code=400, detail="Empty message")
+    
+    # Validate persona
+    if persona not in PERSONAS:
+        raise HTTPException(status_code=400, detail=f"Invalid persona. Choose from: {', '.join(PERSONAS.keys())}")
 
     try:
         # Check if this is the first user message in the session
@@ -198,8 +278,8 @@ async def chat_with_gemini(user_input: UserMessage, request: Request, db: Sessio
         
         is_first_message = message_count == 0
         
-        # 1) Save user message
-        user_msg_entry = ChatMessage(session_id=session_id, role="user", content=message_text, timestamp=get_ist_now())
+        # 1) Save user message with persona
+        user_msg_entry = ChatMessage(session_id=session_id, role="user", content=message_text, persona=persona, timestamp=get_ist_now())
         db.add(user_msg_entry)
         db.commit()
         db.refresh(user_msg_entry)
@@ -261,13 +341,14 @@ async def chat_with_gemini(user_input: UserMessage, request: Request, db: Sessio
         # 4) Format history for Gemini
         chat_history = build_gemini_history(history_rows)
 
-        # 5) Start conversation + generate response
+        # 5) Get model for current persona and start conversation
+        model = get_model_for_persona(persona)
         chat = model.start_chat(history=chat_history)
         response = chat.send_message(message_text)
         bot_reply_text = response.text if hasattr(response, "text") else str(response)
 
-        # 6) Save bot reply
-        bot_msg_entry = ChatMessage(session_id=session_id, role="bot", content=bot_reply_text, timestamp=get_ist_now())
+        # 6) Save bot reply with persona
+        bot_msg_entry = ChatMessage(session_id=session_id, role="bot", content=bot_reply_text, persona=persona, timestamp=get_ist_now())
         db.add(bot_msg_entry)
         db.commit()
         db.refresh(bot_msg_entry)
@@ -356,7 +437,7 @@ def clear_history(req: ClearRequest, db: Session = Depends(get_db)):
 @app.get("/api/sessions")
 def list_sessions(db: Session = Depends(get_db)):
     """
-    Return a list of sessions with auto-generated titles.
+    Return a list of sessions with auto-generated titles and persona info.
     """
     # Get all unique session IDs
     session_ids = db.query(ChatMessage.session_id).distinct().all()
@@ -382,6 +463,9 @@ def list_sessions(db: Session = Depends(get_db)):
             ChatMessage.role == "user"
         ).order_by(ChatMessage.timestamp.asc()).first()
         
+        # Get persona from last message
+        persona = last_msg.persona if last_msg and last_msg.persona else "travel"
+        
         if title_msg:
             title = title_msg.content.replace("[title]", "").strip()
         elif first_user_msg:
@@ -394,6 +478,7 @@ def list_sessions(db: Session = Depends(get_db)):
         sessions.append({
             "session_id": sid,
             "title": title,
+            "persona": persona,
             "last_message_time": last_msg.timestamp.isoformat() if last_msg else None,
             "snippet": first_user_msg.content[:60] if first_user_msg else ""
         })
@@ -405,21 +490,24 @@ def list_sessions(db: Session = Depends(get_db)):
 
 class NewSessionRequest(BaseModel):
     title: Optional[str] = None
+    persona: Optional[str] = "travel"
 
 @app.post("/api/sessions")
 def create_session(req: NewSessionRequest = None, db: Session = Depends(get_db)):
     """
     Create a new session id and optionally a system message/title.
-    Returns { session_id, title (optional) }.
+    Returns { session_id, title (optional), persona }.
     """
     import uuid
     sid = str(uuid.uuid4())
+    persona = req.persona if req and req.persona else "travel"
+    
     # Optionally create an initial system message or title marker (not required)
     if req and req.title:
-        msg = ChatMessage(session_id=sid, role="system", content=f"[title]{req.title}", timestamp=get_ist_now())
+        msg = ChatMessage(session_id=sid, role="system", content=f"[title]{req.title}", persona=persona, timestamp=get_ist_now())
         db.add(msg)
         db.commit()
-    return {"session_id": sid, "title": req.title if req else None}
+    return {"session_id": sid, "title": req.title if req else None, "persona": persona}
 
 class RenameSessionRequest(BaseModel):
     session_id: str
@@ -464,3 +552,19 @@ def delete_session(req: DeleteSessionRequest, db: Session = Depends(get_db)):
     deleted = db.query(ChatMessage).filter(ChatMessage.session_id == req.session_id).delete()
     db.commit()
     return {"deleted": deleted}
+
+@app.get("/api/personas")
+def get_personas():
+    """
+    Get list of available personas/bot roles.
+    """
+    return {
+        "personas": [
+            {
+                "id": key,
+                "name": config["name"],
+                "emoji": config["emoji"]
+            }
+            for key, config in PERSONAS.items()
+        ]
+    }
