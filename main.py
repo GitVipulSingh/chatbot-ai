@@ -244,6 +244,10 @@ async def chat_with_gemini(user_input: UserMessage, db: Session = Depends(get_db
         return {"reply": bot_reply_text, "title_generated": should_generate_title}
 
     except Exception as e:
+        # Log the full error for debugging
+        import traceback
+        print("ERROR in /api/chat:")
+        print(traceback.format_exc())
         # On unexpected errors, return 500 with message (don't leak secrets)
         raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
 

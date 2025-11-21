@@ -193,7 +193,7 @@ function App() {
                 </div>
               </div>
             ))}
-            {loading && <div className="loading">Bot is packing its bags...</div>}
+            {loading && <div className="loading">Bot is thinking...</div>}
             <div ref={messagesEndRef} />
           </div>
 
