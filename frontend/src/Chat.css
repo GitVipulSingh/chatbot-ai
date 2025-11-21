@@ -1,0 +1,317 @@
+/* ============================
+   1. Global Resets & Modern Fonts
+   ============================ */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background-color: #e5e7eb; /* Slightly darker gray for better contrast */
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* ============================
+   2. Main App Container
+   ============================ */
+.chat-container {
+  width: 100%;
+  max-width: 1000px;
+  height: 90vh;
+  
+  /* CHANGED: Main background is now the "Message Gray" */
+  background: #F3F4F6; 
+  
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+  border-radius: 24px; /* More rounded modern look */
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.5); /* Subtle glass border */
+}
+
+/* ============================
+   3. Header (Brand Face)
+   ============================ */
+.chat-header {
+  background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
+  color: white;
+  padding: 24px 32px; /* Taller header */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(15, 118, 110, 0.1); /* Subtle teal glow */
+  z-index: 10;
+}
+
+.chat-header h1 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.clear-btn {
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255,255,255,0.2);
+  padding: 8px 18px;
+  color: white;
+  cursor: pointer;
+  border-radius: 100px; /* Pill shape */
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.clear-btn:hover {
+  background: rgba(255,255,255,0.2);
+  transform: translateY(-1px);
+}
+
+/* ============================
+   4. Messages Area
+   ============================ */
+.messages-area {
+  flex: 1 1 0;
+  padding: 30px 30px 100px 30px; /* Extra bottom padding so text doesn't hide behind input */
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  scroll-behavior: smooth;
+}
+
+.messages-area::-webkit-scrollbar {
+  width: 6px;
+}
+.messages-area::-webkit-scrollbar-thumb {
+  background-color: rgba(0,0,0,0.1);
+  border-radius: 10px;
+}
+
+/* ============================
+   5. Message Bubbles
+   ============================ */
+.message-bubble {
+  max-width: 75%;
+  min-width: 100px;
+  padding: 16px 22px;
+  border-radius: 20px;
+  position: relative;
+  font-size: 0.98rem;
+  line-height: 1.6;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- BOT --- */
+.message-bubble.bot {
+  align-self: flex-start;
+  background-color: #ffffff;
+  color: #374151;
+  border-bottom-left-radius: 4px;
+  border: 1px solid #f3f4f6;
+}
+
+/* --- USER --- */
+.message-bubble.user {
+  align-self: flex-end;
+  background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+  color: white;
+  border-bottom-right-radius: 4px;
+  box-shadow: 0 4px 10px rgba(15, 118, 110, 0.2);
+}
+
+.message-content strong {
+  font-weight: 700;
+  color: inherit;
+}
+
+.message-footer {
+  margin-top: 6px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.time {
+  font-size: 0.7rem;
+  opacity: 0.8;
+}
+
+/* ============================
+   6. Input Area (THE BIG FIX)
+   ============================ */
+.input-area {
+  /* Make the wrapper floating and transparent */
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 0 30px 30px 30px; /* Padding around the floating pill */
+  background: linear-gradient(to top, #F3F4F6 60%, transparent); /* Fade out background behind it */
+  
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 20;
+}
+
+/* We style the input element ITSELF to be the white box */
+input {
+  width: 100%;
+  padding: 16px 24px;
+  border: none;
+  border-radius: 50px; /* Full capsule shape */
+  outline: none;
+  font-size: 1rem;
+  color: #1f2937;
+  background-color: #ffffff;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08); /* High-end floating shadow */
+  transition: all 0.2s ease;
+}
+
+input:focus {
+  box-shadow: 0 12px 30px rgba(15, 118, 110, 0.15); /* Teal glow on focus */
+  transform: translateY(-1px);
+}
+
+/* Button floats "inside" visually */
+button {
+  position: absolute;
+  right: 40px; /* Float inside the input's padding area */
+  padding: 10px 24px;
+  background: #0f766e;
+  color: white;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(15, 118, 110, 0.3);
+}
+
+button:hover {
+  background: #115e59;
+  transform: scale(1.05);
+}
+
+button:active {
+  transform: scale(0.95);
+}
+
+/* ============================
+   7. Mobile Tweaks
+   ============================ */
+@media (max-width: 768px) {
+  .chat-container {
+    max-width: 100%;
+    height: 100%;
+    border-radius: 0;
+    border: none;
+  }
+  
+  .input-area {
+    padding: 15px;
+    background: #F3F4F6; /* Solid background on mobile */
+  }
+  
+  button {
+    right: 25px; /* Adjust button position for narrower screens */
+    padding: 10px 18px;
+  }
+}
+
+/* Sessions sidebar */
+.app-shell {
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
+  height: 100vh;
+  padding: 20px;
+  box-sizing: border-box;
+  background-color: #e5e7eb;
+}
+
+.sessions-sidebar {
+  width: 260px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.sidebar-header {
+  display:flex;
+  justify-content: space-between;
+  align-items:center;
+  margin-bottom:8px;
+}
+
+.new-chat-btn {
+  background: #0f766e;
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.sessions-list {
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.session-item {
+  display:flex;
+  justify-content:space-between;
+  padding:8px;
+  border-radius:8px;
+  cursor:pointer;
+}
+
+.session-item.active {
+  background: linear-gradient(135deg, #ecfeff, #f0fdfa);
+}
+
+.session-main {
+  flex: 1;
+}
+
+.session-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.session-meta {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.session-actions button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  margin-left: 6px;
+}
