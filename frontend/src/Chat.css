@@ -1,26 +1,28 @@
 /* ============================
    1. Global Resets & Modern Fonts
    ============================ */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;500;600;700&display=swap');
 
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, "Helvetica Neue", Roboto, sans-serif;
 }
 
 html, body {
   height: 100%;
   width: 100%;
   overflow: hidden;
-  background-color: #e5e7eb; /* Slightly darker gray for better contrast */
+  background: #111b21;
 }
 
 body {
   display: flex;
   justify-content: center;
   align-items: center;
+  margin: 0;
+  padding: 0;
 }
 
 /* ============================
@@ -28,58 +30,56 @@ body {
    ============================ */
 .chat-container {
   width: 100%;
-  max-width: 1000px;
-  height: 90vh;
-  
-  /* CHANGED: Main background is now the "Message Gray" */
-  background: #F3F4F6; 
-  
+  height: 100%;
+  background: #ffffff;
   display: flex;
   flex-direction: column;
   position: relative;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
-  border-radius: 24px; /* More rounded modern look */
   overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.5); /* Subtle glass border */
 }
 
 /* ============================
    3. Header (Brand Face)
    ============================ */
 .chat-header {
-  background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
-  color: white;
-  padding: 24px 32px; /* Taller header */
+  background: #00a884;
+  color: #ffffff;
+  padding: 16px 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(15, 118, 110, 0.1); /* Subtle teal glow */
   z-index: 10;
 }
 
 .chat-header h1 {
-  font-size: 1.4rem;
-  font-weight: 700;
-  letter-spacing: -0.5px;
+  font-size: 1.25rem;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.chat-header small {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 400;
 }
 
 .clear-btn {
-  background: rgba(255,255,255,0.1);
-  backdrop-filter: blur(4px);
-  border: 1px solid rgba(255,255,255,0.2);
-  padding: 8px 18px;
-  color: white;
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  padding: 8px 16px;
+  color: #ffffff;
   cursor: pointer;
-  border-radius: 100px; /* Pill shape */
-  font-size: 0.85rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
   font-weight: 500;
   transition: all 0.2s ease;
 }
 
 .clear-btn:hover {
-  background: rgba(255,255,255,0.2);
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.25);
 }
 
 /* ============================
@@ -87,231 +87,509 @@ body {
    ============================ */
 .messages-area {
   flex: 1 1 0;
-  padding: 30px 30px 100px 30px; /* Extra bottom padding so text doesn't hide behind input */
+  padding: 20px 60px 100px 60px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 8px;
   scroll-behavior: smooth;
+  background: #efeae2;
+  background-image: 
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 10px,
+      rgba(255,255,255,.03) 10px,
+      rgba(255,255,255,.03) 20px
+    );
 }
 
 .messages-area::-webkit-scrollbar {
   width: 6px;
 }
+.messages-area::-webkit-scrollbar-track {
+  background: transparent;
+}
 .messages-area::-webkit-scrollbar-thumb {
-  background-color: rgba(0,0,0,0.1);
+  background-color: rgba(0, 0, 0, 0.2);
   border-radius: 10px;
+}
+.messages-area::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.3);
 }
 
 /* ============================
    5. Message Bubbles
    ============================ */
 .message-bubble {
-  max-width: 75%;
+  max-width: 65%;
   min-width: 100px;
-  padding: 16px 22px;
-  border-radius: 20px;
+  padding: 8px 12px;
+  border-radius: 8px;
   position: relative;
-  font-size: 0.98rem;
-  line-height: 1.6;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-  animation: fadeIn 0.3s ease;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  animation: fadeIn 0.2s ease;
+  box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 /* --- BOT --- */
 .message-bubble.bot {
   align-self: flex-start;
   background-color: #ffffff;
-  color: #374151;
-  border-bottom-left-radius: 4px;
-  border: 1px solid #f3f4f6;
+  color: #111b21;
+  border-radius: 0 8px 8px 8px;
 }
 
 /* --- USER --- */
 .message-bubble.user {
   align-self: flex-end;
-  background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
-  color: white;
-  border-bottom-right-radius: 4px;
-  box-shadow: 0 4px 10px rgba(15, 118, 110, 0.2);
+  background: #d9fdd3;
+  color: #111b21;
+  border-radius: 8px 0 8px 8px;
+}
+
+.message-content {
+  word-wrap: break-word;
 }
 
 .message-content strong {
-  font-weight: 700;
+  font-weight: 600;
   color: inherit;
 }
 
+.message-content p {
+  margin: 0;
+  margin-bottom: 6px;
+}
+
+.message-content p:last-child {
+  margin-bottom: 0;
+}
+
+.message-content ul, .message-content ol {
+  margin: 6px 0;
+  padding-left: 20px;
+}
+
+.message-content li {
+  margin: 3px 0;
+}
+
 .message-footer {
-  margin-top: 6px;
+  margin-top: 4px;
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
 }
 
 .time {
-  font-size: 0.7rem;
-  opacity: 0.8;
+  font-size: 0.6875rem;
+  color: #667781;
+  font-weight: 400;
 }
 
 /* ============================
-   6. Input Area (THE BIG FIX)
+   6. Input Area
    ============================ */
 .input-area {
-  /* Make the wrapper floating and transparent */
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 0 30px 30px 30px; /* Padding around the floating pill */
-  background: linear-gradient(to top, #F3F4F6 60%, transparent); /* Fade out background behind it */
-  
+  padding: 10px 60px 20px 60px;
+  background: #f0f2f5;
   display: flex;
   align-items: center;
   gap: 10px;
   z-index: 20;
 }
 
-/* We style the input element ITSELF to be the white box */
 input {
-  width: 100%;
-  padding: 16px 24px;
+  flex: 1;
+  padding: 12px 16px;
   border: none;
-  border-radius: 50px; /* Full capsule shape */
+  border-radius: 8px;
   outline: none;
-  font-size: 1rem;
-  color: #1f2937;
+  font-size: 0.9375rem;
+  color: #3b4a54;
   background-color: #ffffff;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.08); /* High-end floating shadow */
   transition: all 0.2s ease;
 }
 
 input:focus {
-  box-shadow: 0 12px 30px rgba(15, 118, 110, 0.15); /* Teal glow on focus */
-  transform: translateY(-1px);
+  box-shadow: 0 0 0 2px #00a884;
 }
 
-/* Button floats "inside" visually */
-button {
-  position: absolute;
-  right: 40px; /* Float inside the input's padding area */
-  padding: 10px 24px;
-  background: #0f766e;
+input::placeholder {
+  color: #8696a0;
+}
+
+.input-area button {
+  position: static;
+  padding: 12px 24px;
+  background: #00a884;
   color: white;
   border: none;
-  border-radius: 50px;
+  border-radius: 8px;
   cursor: pointer;
-  font-weight: 600;
-  font-size: 0.9rem;
+  font-weight: 500;
+  font-size: 0.9375rem;
   transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(15, 118, 110, 0.3);
 }
 
-button:hover {
-  background: #115e59;
-  transform: scale(1.05);
+.input-area button:hover {
+  background: #008f6f;
 }
 
-button:active {
-  transform: scale(0.95);
+.input-area button:active {
+  background: #007a5e;
 }
 
 /* ============================
-   7. Mobile Tweaks
+   7. Loading State
    ============================ */
-@media (max-width: 768px) {
-  .chat-container {
-    max-width: 100%;
-    height: 100%;
-    border-radius: 0;
-    border: none;
-  }
-  
-  .input-area {
-    padding: 15px;
-    background: #F3F4F6; /* Solid background on mobile */
-  }
-  
-  button {
-    right: 25px; /* Adjust button position for narrower screens */
-    padding: 10px 18px;
-  }
+.loading {
+  align-self: flex-start;
+  max-width: 65%;
+  padding: 8px 12px;
+  background: #ffffff;
+  border-radius: 0 8px 8px 8px;
+  color: #667781;
+  font-size: 0.9375rem;
+  box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
+  animation: pulse 1.5s ease-in-out infinite;
 }
 
-/* Sessions sidebar */
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* ============================
+   8. Empty Chat State
+   ============================ */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #667781;
+  text-align: center;
+  padding: 20px;
+}
+
+.empty-state h2 {
+  font-size: 1.5rem;
+  font-weight: 400;
+  margin-bottom: 8px;
+  color: #111b21;
+}
+
+.empty-state p {
+  font-size: 0.9375rem;
+  color: #667781;
+}
+
+/* ============================
+   9. Sessions Sidebar
+   ============================ */
 .app-shell {
   display: flex;
-  gap: 16px;
+  gap: 0;
   align-items: stretch;
   height: 100vh;
-  padding: 20px;
+  width: 100vw;
+  padding: 0;
   box-sizing: border-box;
-  background-color: #e5e7eb;
+  overflow: hidden;
+}
+
+.chat-wrapper {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .sessions-sidebar {
-  width: 260px;
+  width: 340px;
+  min-width: 340px;
   background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.06);
-  padding: 12px;
+  border-right: 1px solid #e9edef;
+  padding: 0;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.sessions-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+.sessions-sidebar::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
 }
 
 .sidebar-header {
-  display:flex;
+  display: flex;
   justify-content: space-between;
-  align-items:center;
-  margin-bottom:8px;
+  align-items: center;
+  padding: 16px;
+  background: #f0f2f5;
+  border-bottom: 1px solid #e9edef;
+  flex-shrink: 0;
+}
+
+.sidebar-header h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #111b21;
 }
 
 .new-chat-btn {
-  background: #0f766e;
+  background: #00a884;
   color: white;
   border: none;
-  padding: 6px 10px;
+  padding: 8px 16px;
   border-radius: 8px;
   cursor: pointer;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.new-chat-btn:hover {
+  background: #008f6f;
 }
 
 .sessions-list {
-  display:flex;
-  flex-direction:column;
-  gap:8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow-y: auto;
 }
 
 .session-item {
-  display:flex;
-  justify-content:space-between;
-  padding:8px;
-  border-radius:8px;
-  cursor:pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 1px solid #f0f2f5;
+}
+
+.session-item:hover {
+  background: #f5f6f6;
 }
 
 .session-item.active {
-  background: linear-gradient(135deg, #ecfeff, #f0fdfa);
+  background: #e9edef;
 }
 
 .session-main {
   flex: 1;
+  min-width: 0;
 }
 
 .session-title {
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #111b21;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
 }
 
 .session-meta {
-  font-size: 0.75rem;
-  opacity: 0.7;
+  font-size: 0.8125rem;
+  color: #667781;
+}
+
+.session-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+
+.session-item:hover .session-actions {
+  opacity: 1;
 }
 
 .session-actions button {
   background: transparent;
   border: none;
   cursor: pointer;
-  margin-left: 6px;
+  padding: 6px;
+  border-radius: 50%;
+  font-size: 1rem;
+  transition: all 0.2s;
+  color: #667781;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.session-actions button:hover {
+  background: #d1d7db;
+  color: #111b21;
+}
+
+/* ============================
+   10. Responsive Design
+   ============================ */
+
+/* Tablet and smaller laptops */
+@media (max-width: 1200px) {
+  .sessions-sidebar {
+    width: 280px;
+    min-width: 280px;
+  }
+  
+  .chat-container {
+    max-width: 100%;
+  }
+  
+  .messages-area {
+    padding: 20px 40px 100px 40px;
+  }
+  
+  .input-area {
+    padding: 10px 40px 20px 40px;
+  }
+}
+
+/* Tablet portrait */
+@media (max-width: 968px) {
+  .sessions-sidebar {
+    width: 260px;
+    min-width: 260px;
+  }
+  
+  .messages-area {
+    padding: 20px 24px 100px 24px;
+  }
+  
+  .input-area {
+    padding: 10px 24px 16px 24px;
+  }
+  
+  .message-bubble {
+    max-width: 75%;
+  }
+}
+
+/* Mobile landscape and smaller */
+@media (max-width: 768px) {
+  .app-shell {
+    padding: 0;
+  }
+  
+  .sessions-sidebar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  .sessions-sidebar.open {
+    transform: translateX(0);
+  }
+  
+  .chat-wrapper {
+    width: 100%;
+  }
+  
+  .chat-container {
+    height: 100vh;
+    max-width: 100%;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  
+  .chat-header {
+    padding: 12px 16px;
+  }
+  
+  .chat-header h1 {
+    font-size: 1.125rem;
+  }
+  
+  .messages-area {
+    padding: 16px 12px 90px 12px;
+  }
+  
+  .input-area {
+    padding: 10px 12px 12px 12px;
+  }
+  
+  .input-area button {
+    padding: 12px 20px;
+    font-size: 0.875rem;
+  }
+  
+  .message-bubble {
+    max-width: 85%;
+    font-size: 0.875rem;
+  }
+  
+  .clear-btn {
+    padding: 6px 12px;
+    font-size: 0.8125rem;
+  }
+}
+
+/* Mobile portrait */
+@media (max-width: 480px) {
+  .chat-header h1 {
+    font-size: 1rem;
+  }
+  
+  .chat-header small {
+    font-size: 0.75rem;
+  }
+  
+  .messages-area {
+    padding: 12px 8px 85px 8px;
+  }
+  
+  .input-area {
+    padding: 8px;
+    gap: 8px;
+  }
+  
+  input {
+    padding: 10px 12px;
+    font-size: 0.875rem;
+  }
+  
+  .input-area button {
+    padding: 10px 16px;
+  }
+  
+  .message-bubble {
+    padding: 7px 10px;
+    font-size: 0.875rem;
+  }
 }
