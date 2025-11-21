@@ -9,6 +9,8 @@ from typing import Optional, List
 from datetime import datetime
 from sqlalchemy import func
 import pytz
+from collections import defaultdict
+import time
 
 # IST timezone
 IST = pytz.timezone('Asia/Kolkata')
@@ -74,6 +76,32 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Simple rate limiting: track requests per IP
+rate_limit_store = defaultdict(list)
+RATE_LIMIT_REQUESTS = 10  # max requests
+RATE_LIMIT_WINDOW = 60  # per 60 seconds
+
+def check_rate_limit(request: Request):
+    """Simple rate limiting by IP address"""
+    client_ip = request.client.host
+    current_time = time.time()
+    
+    # Clean old requests outside the window
+    rate_limit_store[client_ip] = [
+        req_time for req_time in rate_limit_store[client_ip]
+        if current_time - req_time < RATE_LIMIT_WINDOW
+    ]
+    
+    # Check if limit exceeded
+    if len(rate_limit_store[client_ip]) >= RATE_LIMIT_REQUESTS:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded. Max {RATE_LIMIT_REQUESTS} requests per {RATE_LIMIT_WINDOW} seconds."
+        )
+    
+    # Add current request
+    rate_limit_store[client_ip].append(current_time)
 
 # Pydantic models
 class UserMessage(BaseModel):
@@ -145,7 +173,7 @@ Title:"""
 # --- Endpoints ---
 
 @app.post("/api/chat")
-async def chat_with_gemini(user_input: UserMessage, db: Session = Depends(get_db)):
+async def chat_with_gemini(user_input: UserMessage, request: Request, db: Session = Depends(get_db)):
     """
     Expects JSON:
     {
@@ -153,6 +181,9 @@ async def chat_with_gemini(user_input: UserMessage, db: Session = Depends(get_db
       "message": "Hi, suggest places..."
     }
     """
+    # Apply rate limiting
+    check_rate_limit(request)
+    
     session_id = user_input.session_id.strip()
     message_text = user_input.message.strip()
     if not message_text:
@@ -243,13 +274,25 @@ async def chat_with_gemini(user_input: UserMessage, db: Session = Depends(get_db
 
         return {"reply": bot_reply_text, "title_generated": should_generate_title}
 
+    except HTTPException:
+        # Re-raise HTTP exceptions (like rate limit)
+        raise
     except Exception as e:
         # Log the full error for debugging
         import traceback
         print("ERROR in /api/chat:")
         print(traceback.format_exc())
-        # On unexpected errors, return 500 with message (don't leak secrets)
-        raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
+        
+        # Handle specific Gemini API errors
+        error_msg = str(e)
+        if "403" in error_msg or "PermissionDenied" in error_msg:
+            raise HTTPException(status_code=403, detail="API key issue. Please check your Gemini API key.")
+        elif "429" in error_msg or "quota" in error_msg.lower():
+            raise HTTPException(status_code=429, detail="API rate limit exceeded. Please try again later.")
+        elif "timeout" in error_msg.lower():
+            raise HTTPException(status_code=504, detail="Request timeout. Please try again.")
+        else:
+            raise HTTPException(status_code=500, detail="An error occurred while processing your request.")
 
 @app.get("/api/history")
 def get_chat_history(session_id: str, limit: Optional[int] = 200, db: Session = Depends(get_db)):

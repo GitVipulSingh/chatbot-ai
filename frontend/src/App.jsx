@@ -105,6 +105,34 @@ function App() {
       }
     } catch (error) {
       console.error("Error sending message:", error);
+      
+      // Display user-friendly error message
+      let errorMsg = "Sorry, something went wrong. Please try again.";
+      
+      if (error.response) {
+        const status = error.response.status;
+        const detail = error.response.data?.detail;
+        
+        if (status === 429) {
+          errorMsg = detail || "Too many requests. Please wait a moment and try again.";
+        } else if (status === 403) {
+          errorMsg = "API key issue. Please contact support.";
+        } else if (status === 504) {
+          errorMsg = "Request timeout. Please try again.";
+        } else if (detail) {
+          errorMsg = detail;
+        }
+      } else if (error.request) {
+        errorMsg = "Cannot connect to server. Please check your connection.";
+      }
+      
+      // Add error message to chat
+      const errorBotMsg = {
+        role: "bot",
+        content: `⚠️ ${errorMsg}`,
+        timestamp: new Date().toISOString()
+      };
+      setMessages((prev) => [...prev, errorBotMsg]);
     } finally {
       setLoading(false);
     }
