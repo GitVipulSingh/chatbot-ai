@@ -274,7 +274,7 @@ You ONLY discuss movies, TV shows, and entertainment. For ANY question outside m
 def get_model_for_persona(persona: str):
     """Get a Gemini model configured for the specified persona"""
     persona_config = PERSONAS.get(persona, PERSONAS["travel"])
-    return genai.GenerativeModel('gemini-2.0-flash', system_instruction=persona_config["instruction"])
+    return genai.GenerativeModel('gemini-2.5-flash', system_instruction=persona_config["instruction"])
 
 app = FastAPI()
 
