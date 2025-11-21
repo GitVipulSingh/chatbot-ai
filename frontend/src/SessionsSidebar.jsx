@@ -20,9 +20,18 @@ export default function SessionsSidebar({ activeSession, onSwitch, onNewSession,
 
   useEffect(() => {
     fetchSessions();
+    
+    // Listen for custom refresh event
+    const handleRefresh = () => fetchSessions();
+    window.addEventListener('refreshSessions', handleRefresh);
+    
     // refresh every 20s to show new sessions if needed
     const id = setInterval(fetchSessions, 20000);
-    return () => clearInterval(id);
+    
+    return () => {
+      clearInterval(id);
+      window.removeEventListener('refreshSessions', handleRefresh);
+    };
   }, []);
 
   return (
@@ -36,11 +45,16 @@ export default function SessionsSidebar({ activeSession, onSwitch, onNewSession,
       </div>
 
       <div className="sessions-list">
-        {loading && <div style={{padding: 12}}>Loading…</div>}
-        {!loading && sessions.length === 0 && <div style={{padding: 12}}>No chats yet</div>}
+        {loading && <div style={{padding: 12, color: '#667781'}}>Loading…</div>}
+        {!loading && sessions.length === 0 && <div style={{padding: 12, color: '#667781'}}>No chats yet</div>}
         {sessions.map((s) => {
-          const title = s.snippet ? s.snippet.slice(0, 60) : "New chat";
-          const last = s.last_message_time ? new Date(s.last_message_time).toLocaleString() : "";
+          const title = s.title || "New chat";
+          const last = s.last_message_time ? new Date(s.last_message_time).toLocaleString([], {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          }) : "";
           const isActive = activeSession === s.session_id;
           return (
             <div key={s.session_id} className={`session-item ${isActive ? "active" : ""}`}>
@@ -49,8 +63,26 @@ export default function SessionsSidebar({ activeSession, onSwitch, onNewSession,
                 <div className="session-meta">{last}</div>
               </div>
               <div className="session-actions">
-                <button onClick={async (e)=>{ e.stopPropagation(); const newTitle = prompt("New title?"); if(newTitle) { await onRename(s.session_id, newTitle); fetchSessions(); } }}>✎</button>
-                <button onClick={async (e)=>{ e.stopPropagation(); if(confirm("Delete this chat?")){ await onDelete(s.session_id); fetchSessions(); if(activeSession===s.session_id) onSwitch(null); }}}>🗑</button>
+                <button 
+                  title="Rename"
+                  onClick={async (e)=>{ 
+                    e.stopPropagation(); 
+                    const newTitle = prompt("New title?", title); 
+                    if(newTitle && newTitle !== title) { 
+                      await onRename(s.session_id, newTitle); 
+                      fetchSessions(); 
+                    } 
+                  }}>✎</button>
+                <button 
+                  title="Delete"
+                  onClick={async (e)=>{ 
+                    e.stopPropagation(); 
+                    if(confirm("Delete this chat?")){ 
+                      await onDelete(s.session_id); 
+                      fetchSessions(); 
+                      if(activeSession===s.session_id) onSwitch(null); 
+                    }
+                  }}>🗑</button>
               </div>
             </div>
           );

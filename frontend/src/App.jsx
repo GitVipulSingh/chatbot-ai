@@ -83,6 +83,7 @@ function App() {
     if (!input.trim() || !sessionId) return;
     const now = new Date().toISOString();
     const userMsg = { role: "user", content: input, timestamp: now };
+    const isFirstMessage = messages.length === 0;
 
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
@@ -101,6 +102,12 @@ function App() {
       };
       setMessages((prev) => [...prev, botMsg]);
       fetchStats();
+      
+      // If title was generated (first message), trigger sidebar refresh
+      if (res.data.title_generated || isFirstMessage) {
+        // Trigger a custom event to refresh sidebar
+        window.dispatchEvent(new CustomEvent('refreshSessions'));
+      }
     } catch (error) {
       console.error("Error sending message:", error);
     } finally {

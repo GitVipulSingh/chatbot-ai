@@ -79,10 +79,27 @@ class ClearRequest(BaseModel):
 def build_gemini_history(db_msgs: List[ChatMessage]):
     history = []
     for m in db_msgs:
+        # Skip system messages (titles)
+        if m.role == "system":
+            continue
         # Correct Gemini roles:
         role = "user" if m.role == "user" else "model"
         history.append({"role": role, "parts": [m.content]})
     return history
+
+def generate_title_from_message(message: str) -> str:
+    """Generate a short title from the first user message using Gemini."""
+    try:
+        title_model = genai.GenerativeModel('gemini-2.0-flash')
+        prompt = f"Generate a very short title (max 5 words) for this message: '{message}'. Only return the title, nothing else."
+        response = title_model.generate_content(prompt)
+        title = response.text.strip().strip('"').strip("'")
+        # Limit to 50 chars
+        return title[:50] if len(title) > 50 else title
+    except:
+        # Fallback: use first few words
+        words = message.split()[:5]
+        return " ".join(words) + ("..." if len(message.split()) > 5 else "")
 
 # --- Endpoints ---
 
@@ -101,13 +118,28 @@ async def chat_with_gemini(user_input: UserMessage, db: Session = Depends(get_db
         raise HTTPException(status_code=400, detail="Empty message")
 
     try:
+        # Check if this is the first user message in the session
+        message_count = db.query(ChatMessage).filter(
+            ChatMessage.session_id == session_id,
+            ChatMessage.role.in_(["user", "bot"])
+        ).count()
+        
+        is_first_message = message_count == 0
+        
         # 1) Save user message
         user_msg_entry = ChatMessage(session_id=session_id, role="user", content=message_text, timestamp=datetime.utcnow())
         db.add(user_msg_entry)
         db.commit()
         db.refresh(user_msg_entry)
 
-        # 2) Fetch recent session-specific history (limit to last N messages)
+        # 2) If first message, generate and save title
+        if is_first_message:
+            title = generate_title_from_message(message_text)
+            title_msg = ChatMessage(session_id=session_id, role="system", content=f"[title]{title}", timestamp=datetime.utcnow())
+            db.add(title_msg)
+            db.commit()
+
+        # 3) Fetch recent session-specific history (limit to last N messages)
         N = 40  # number of DB messages to include; tune as needed
         history_rows = (
             db.query(ChatMessage)
@@ -118,22 +150,21 @@ async def chat_with_gemini(user_input: UserMessage, db: Session = Depends(get_db
         )
         history_rows = history_rows[::-1]  # chronological order
 
-        # 3) Format history for Gemini
+        # 4) Format history for Gemini
         chat_history = build_gemini_history(history_rows)
 
-        # 4) Start conversation + generate response
-        # Use the SDK pattern you already used - start_chat with history
+        # 5) Start conversation + generate response
         chat = model.start_chat(history=chat_history)
         response = chat.send_message(message_text)
         bot_reply_text = response.text if hasattr(response, "text") else str(response)
 
-        # 5) Save bot reply
+        # 6) Save bot reply
         bot_msg_entry = ChatMessage(session_id=session_id, role="bot", content=bot_reply_text, timestamp=datetime.utcnow())
         db.add(bot_msg_entry)
         db.commit()
         db.refresh(bot_msg_entry)
 
-        return {"reply": bot_reply_text}
+        return {"reply": bot_reply_text, "title_generated": is_first_message}
 
     except Exception as e:
         # On unexpected errors, return 500 with message (don't leak secrets)
@@ -199,27 +230,50 @@ def clear_history(req: ClearRequest, db: Session = Depends(get_db)):
 @app.get("/api/sessions")
 def list_sessions(db: Session = Depends(get_db)):
     """
-    Return a list of sessions (session_id, last_message, snippet).
+    Return a list of sessions with auto-generated titles.
     """
-    # Query distinct session IDs and last message timestamp & snippet
-    rows = (
-        db.query(
-            ChatMessage.session_id,
-            func.max(ChatMessage.timestamp).label("last_ts"),
-            func.substr(func.max(ChatMessage.content), 1, 200).label("snippet")
-        )
-        .group_by(ChatMessage.session_id)
-        .order_by(func.max(ChatMessage.timestamp).desc())
-        .all()
-    )
-
+    # Get all unique session IDs
+    session_ids = db.query(ChatMessage.session_id).distinct().all()
+    
     sessions = []
-    for r in rows:
+    for (sid,) in session_ids:
+        # Get title from system message if exists
+        title_msg = db.query(ChatMessage).filter(
+            ChatMessage.session_id == sid,
+            ChatMessage.role == "system",
+            ChatMessage.content.like("[title]%")
+        ).first()
+        
+        # Get last message timestamp
+        last_msg = db.query(ChatMessage).filter(
+            ChatMessage.session_id == sid
+        ).order_by(ChatMessage.timestamp.desc()).first()
+        
+        # Get first user message as fallback
+        first_user_msg = db.query(ChatMessage).filter(
+            ChatMessage.session_id == sid,
+            ChatMessage.role == "user"
+        ).order_by(ChatMessage.timestamp.asc()).first()
+        
+        if title_msg:
+            title = title_msg.content.replace("[title]", "").strip()
+        elif first_user_msg:
+            # Use first few words as title
+            words = first_user_msg.content.split()[:5]
+            title = " ".join(words) + ("..." if len(first_user_msg.content.split()) > 5 else "")
+        else:
+            title = "New Chat"
+        
         sessions.append({
-            "session_id": r[0],
-            "last_message_time": r[1].isoformat() if r[1] else None,
-            "snippet": r[2] or ""
+            "session_id": sid,
+            "title": title,
+            "last_message_time": last_msg.timestamp.isoformat() if last_msg else None,
+            "snippet": first_user_msg.content[:60] if first_user_msg else ""
         })
+    
+    # Sort by last message time
+    sessions.sort(key=lambda x: x["last_message_time"] or "", reverse=True)
+    
     return {"sessions": sessions}
 
 class NewSessionRequest(BaseModel):
