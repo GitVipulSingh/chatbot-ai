@@ -1,5 +1,5 @@
 // frontend/src/App.jsx
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import ReactMarkdown from "react-markdown";
 import SessionsSidebar from "./SessionsSidebar";
@@ -261,16 +261,51 @@ function App() {
           </div>
 
           <div className="messages-area">
-            {messages.map((msg, idx) => (
-              <div key={idx} className={`message-bubble ${msg.role}`}>
-                <div className="message-content">
-                  <ReactMarkdown>{msg.content}</ReactMarkdown>
-                </div>
-                <div className="message-footer">
-                  <span className="time">{msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit', timeZone: 'Asia/Kolkata'}) : ""}</span>
-                </div>
-              </div>
-            ))}
+            {messages.map((msg, idx) => {
+              // Check if we need to show a date separator
+              const showDateSeparator = idx === 0 || (
+                msg.timestamp && messages[idx - 1].timestamp &&
+                new Date(msg.timestamp).toDateString() !== new Date(messages[idx - 1].timestamp).toDateString()
+              );
+
+              const formatDateSeparator = (timestamp) => {
+                const date = new Date(timestamp);
+                const today = new Date();
+                const yesterday = new Date(today);
+                yesterday.setDate(yesterday.getDate() - 1);
+
+                if (date.toDateString() === today.toDateString()) {
+                  return "Today";
+                } else if (date.toDateString() === yesterday.toDateString()) {
+                  return "Yesterday";
+                } else {
+                  return date.toLocaleDateString('en-IN', { 
+                    day: 'numeric', 
+                    month: 'long', 
+                    year: 'numeric',
+                    timeZone: 'Asia/Kolkata'
+                  });
+                }
+              };
+
+              return (
+                <React.Fragment key={idx}>
+                  {showDateSeparator && msg.timestamp && (
+                    <div className="date-separator">
+                      <span>{formatDateSeparator(msg.timestamp)}</span>
+                    </div>
+                  )}
+                  <div className={`message-bubble ${msg.role}`}>
+                    <div className="message-content">
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    </div>
+                    <div className="message-footer">
+                      <span className="time">{msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit', timeZone: 'Asia/Kolkata'}) : ""}</span>
+                    </div>
+                  </div>
+                </React.Fragment>
+              );
+            })}
             {loading && <div className="loading">Bot is thinking...</div>}
             <div ref={messagesEndRef} />
           </div>
