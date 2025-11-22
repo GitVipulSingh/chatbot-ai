@@ -357,7 +357,7 @@ def generate_title_from_conversation(messages: List[ChatMessage]) -> str:
         # Combine messages for context
         context = " | ".join(user_messages)
         
-        title_model = genai.GenerativeModel('gemini-2.0-flash')
+        title_model = genai.GenerativeModel('gemini-2.5-flash')
         prompt = f"""Based on this conversation context, generate a very short, meaningful title (max 4-5 words).
 Context: {context}
 
