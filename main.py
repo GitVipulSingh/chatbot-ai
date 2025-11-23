@@ -466,7 +466,7 @@ async def chat_with_gemini(user_input: UserMessage, request: Request, db: Sessio
             db.commit()
 
         # 3) Fetch recent session-specific history (limit to last N messages)
-        N = 40  # number of DB messages to include; tune as needed
+        N = 200  # number of DB messages to include; tune as needed
         history_rows = (
             db.query(ChatMessage)
             .filter(ChatMessage.session_id == session_id)
